@@ -4,6 +4,8 @@
 // Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
+
+//todo - Add the multiple accounts feature
 generator client {
   provider = "prisma-client-js"
   output   = "../generated/prisma"
@@ -24,21 +26,23 @@ model User{
 }
 
 model Streamer {
-  id        String @id @default(uuid())
-  type      StreamType
-  userId    String
-  active    Boolean  @default(false)
-  upvotes   UpVotes[]
-  user      User @relation(fields: [userId],references: [id],onDelete: Cascade)
+  id            String @id @default(uuid())
+  type          StreamType
+  url           String
+  extractedId   String
+  userId        String
+  active        Boolean  @default(false)
+  upvotes       UpVotes[]
+  user          User @relation(fields: [userId],references: [id],onDelete: Cascade)
 }
 
 model UpVotes{
   id      String @id @default(uuid())
   userId  String
-  streamerId  String
+  streamId  String
   user     User @relation(fields: [userId],references: [id],onDelete: Cascade)
-  streamer  Streamer @relation(fields: [streamerId],references: [id],onDelete: Cascade)
-  @@unique([userId,streamerId])
+  streamer  Streamer @relation(fields: [streamId],references: [id],onDelete: Cascade)
+  @@unique([userId,streamId])
 }
 
 
