@@ -17,10 +17,10 @@ datasource db {
 }
 model User{
   id        String @id @default(uuid())
-  name      String
+  name      String ?
   email     String @unique
   provider  Providers
-  role      Role
+  role      Role @default(Streamer)
   streamer  Streamer[]
   upvotes   UpVotes[]
 }
