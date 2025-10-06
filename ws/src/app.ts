@@ -44,7 +44,7 @@ function createHttpServer() {
 async function handleConnection(ws: WebSocket) {
   ws.on("message", async (raw: { toString: () => string }) => {
     const { type, data } = JSON.parse(raw.toString()) || {};
-
+    console.log("Received message:", type, data);
     switch (type) {
       case "join-room":
         await handleJoinRoom(ws, data);
@@ -137,6 +137,7 @@ async function processUserAction(type: string, data: Data) {
 
 async function handleUserAction(ws: WebSocket, type: string, data: Data) {
   const user = RoomManager.getInstance().users.get(data.userId);
+  console.log(RoomManager.getInstance().users,data.userId)
 
   if (user) {
     data.userId = user.userId;
@@ -146,10 +147,12 @@ async function handleUserAction(ws: WebSocket, type: string, data: Data) {
   }
 }
 
+
 async function main() {
   const server = createHttpServer();
   const wss = new WebSocketServer({ server });
-  await RoomManager.getInstance().initRedisClient();
+  await RoomManager.getInstance().initRedisClient()
+
 
   wss.on("connection", (ws) => handleConnection(ws));
 

@@ -12,14 +12,12 @@ const TIME_SPAN_FOR_REPEAT = 3600000;
 const MAX_QUEUE_LENGTH = 20;
 
 const connection = {
-  username: process.env.REDIS_USERNAME || "",
-  password: process.env.REDIS_PASSWORD || "",
   host: process.env.REDIS_HOST || "",
   port: parseInt(process.env.REDIS_PORT || "") || 6379,
 };
 
 const redisCredentials = {
-  url: `redis://${connection.username}:${connection.password}@${connection.host}:${connection.port}`,
+  url: `redis://${connection.host}:${connection.port}`,
 };
 
 export class RoomManager {
