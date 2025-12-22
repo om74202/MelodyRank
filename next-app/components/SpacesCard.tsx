@@ -33,6 +33,7 @@ export default function SpacesCard({
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [spaceToDelete, setSpaceToDelete] = useState<string | null>(null);
 
+  // Animated card UI for a single space with a confirmation dialog before delete
   const handleDeleteClick = (id: string) => {
     setSpaceToDelete(id);
     setIsDialogOpen(true);

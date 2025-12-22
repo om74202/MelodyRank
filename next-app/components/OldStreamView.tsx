@@ -51,6 +51,8 @@ interface CustomSession extends Omit<Session, "user"> {
 
 const REFRESH_INTERVAL_MS = 10 * 1000;
 
+// Legacy/polling version of the stream view: instead of websockets it fetches
+// the queue every 10s and embeds the YouTube player directly in the client.
 export default function StreamView({
   creatorId,
   playVideo = false,

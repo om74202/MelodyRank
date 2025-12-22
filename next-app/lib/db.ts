@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 
+// Keep one Prisma instance across hot reloads; Next.js dev server recreates modules often
 const prismaClientSingleton = () => {
   return new PrismaClient();
 };

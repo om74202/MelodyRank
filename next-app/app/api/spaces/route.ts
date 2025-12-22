@@ -3,9 +3,12 @@ import prisma from "@/lib/db";
 import { authOptions } from "@/lib/auth-options";
 import { getServerSession } from "next-auth";
 
+// Route handlers in `app/api` run on the server only; these three endpoints
+// create, read, and delete "spaces" for a logged-in host.
 export async function POST(req: NextRequest) {
   try {
     
+    // NextAuth helper that reads the session cookie on the server
     const session = await getServerSession(authOptions);
     
     
@@ -17,6 +20,7 @@ export async function POST(req: NextRequest) {
     }
 
    
+    // Parse JSON body sent from the client
     const data = await req.json();
     
     
@@ -62,6 +66,7 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req:NextRequest) {
     try {
         const spaceId = req.nextUrl.searchParams.get("spaceId");
+        // Guard so only authenticated hosts can delete a room
         const session = await getServerSession(authOptions);
         if (!session?.user?.id) {
           return NextResponse.json(

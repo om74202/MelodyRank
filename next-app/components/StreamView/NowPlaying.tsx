@@ -23,6 +23,7 @@ export default function NowPlaying({
   const videoPlayerRef = useRef<HTMLDivElement>();
 
   useEffect(() => {
+    // Host view mounts an actual YouTube iframe so we can auto-advance songs
     if (!videoPlayerRef.current || !currentVideo) {
       return;
     }

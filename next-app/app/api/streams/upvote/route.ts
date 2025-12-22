@@ -10,6 +10,7 @@ const UpvoteSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  // Server-side session read ensures only authenticated users can upvote
   const session = await getServerSession(authOptions);
 
   if (!session?.user) {
@@ -25,6 +26,7 @@ export async function POST(req: NextRequest) {
   const user = session.user;
 
   try {
+    // Validate the incoming body; zod errors bubble into the catch below
     const data = UpvoteSchema.parse(await req.json());
     await db.upvote.create({
       data: {

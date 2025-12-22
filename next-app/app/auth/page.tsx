@@ -11,6 +11,8 @@ export default function AuthPage({
 }: {
   searchParams: { authType: SignInFlow; mailId?: string };
 }) {
+  // `use client` marks this as a Client Component so we can read browser-only
+  // hooks like useSession() and imperatively redirect with useRouter().
   const formType = searchParams.authType;
   const session = useSession();
   const router = useRouter();

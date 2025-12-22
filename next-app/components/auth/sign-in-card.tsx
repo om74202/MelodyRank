@@ -22,6 +22,8 @@ export default function SigninCard({ setFormType: setState }: SigninCardProps) {
   const [error, setError] = useState("");
   const router = useRouter();
 
+  // `signIn` is a NextAuth client helper that posts to `/api/auth/[...nextauth]`
+  // under the hood; we reuse it for both credentials and Google providers.
   const signInWithProvider = async (provider: "google" | "credentials") => {
     try {
       if (provider === "credentials") {

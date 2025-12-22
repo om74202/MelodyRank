@@ -11,6 +11,7 @@ export function Appbar({ showThemeSwitch = true , isSpectator=false }) {
   const session = useSession();
   const router = useRouter();
 
+  // Shows auth buttons or logout depending on NextAuth session; spectators get a Solana wallet button.
   return (
     <div className="flex justify-between px-5 py-4 md:px-10 xl:px-20">
       <div

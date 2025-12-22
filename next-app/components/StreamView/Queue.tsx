@@ -26,9 +26,11 @@ type Props = {
 export default function Queue({ queue, isCreator, creatorId, userId,spaceId }: Props) {
   const { sendMessage } = useSocket();
   const [isEmptyQueueDialogOpen, setIsEmptyQueueDialogOpen] = useState(false);
+  // useAutoAnimate adds small transitions when the queue reorders after votes
   const [parent] = useAutoAnimate();
 
   function handleVote(id: string, isUpvote: boolean) {
+    // Send vote intent over the websocket; backend recalculates counts
     sendMessage("cast-vote", {
       vote: isUpvote ? "upvote" : "downvote",
       streamId: id,
@@ -54,6 +56,7 @@ export default function Queue({ queue, isCreator, creatorId, userId,spaceId }: P
   const emptyQueue = async () => {
     sendMessage("empty-queue", {
       spaceId:spaceId,
+      userId:userId
     });
     setIsEmptyQueueDialogOpen(false);
   };

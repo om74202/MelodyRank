@@ -31,11 +31,12 @@ export default function StreamView({
   const user = useSession().data?.user;
 
   useEffect(() => {
+    // Listen for websocket broadcasts from the Node server and keep local UI in sync
     if (socket) {
       socket.onmessage = async (event) => {
+        console.log(event)
         const { type, data } = JSON.parse(event.data) || {};
         if (type === `new-stream/${spaceId}`) {
-          console.log(type);
           addToQueue(data);
         } else if (type === `new-vote/${spaceId}`) {
           setQueue((prev) => {
@@ -83,6 +84,8 @@ export default function StreamView({
 
   async function refreshStreams() {
     try {
+      // Server Component note: even though this is a Client Component we can still call
+      // our Next.js Route Handlers for fresh data whenever we reconnect.
       const res = await fetch(`/api/streams/?spaceId=${spaceId}`, {
         credentials: "include",
       });
@@ -90,6 +93,7 @@ export default function StreamView({
       setQueue(
         json.streams.sort((a: any, b: any) => (a.upvotes < b.upvotes ? 1 : -1)),
       );
+      console.log(json)
 
       setCurrentVideo((video) => {
         if (video?.id === json.activeStream?.stream?.id) {
@@ -115,9 +119,9 @@ export default function StreamView({
 
   const enqueueToast = (type: "error" | "success", message: string) => {
     const toastFn = type === "error" ? toast.error : toast.success;
-  
+    
     toastFn(message, {
-      duration: 5000,
+      duration: 3000,
     });
   };
   

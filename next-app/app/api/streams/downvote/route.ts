@@ -9,6 +9,7 @@ const UpvoteSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  // Downvotes simply delete the user's upvote record for the stream
   const session = await getServerSession(authOptions);
 
   if (!session?.user.id) {
@@ -24,6 +25,7 @@ export async function POST(req: NextRequest) {
   const user = session.user;
 
   try {
+    // zod keeps the payload small and predictable
     const data = UpvoteSchema.parse(await req.json());
     await db.upvote.delete({
       where: {

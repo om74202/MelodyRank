@@ -9,6 +9,7 @@ import { sendError } from "./utils";
 import { RoomManager } from "./StreamManager";
 
 dotenv.config();
+// Use a single worker for now; can bump to os.cpus().length when scaling out.
 const cors = 1; // os.cpus().length  // for vertical scaling
 
 if (cluster.isPrimary) {
@@ -34,6 +35,7 @@ type Data = {
 
 
 function createHttpServer() {
+  // Tiny HTTP server only exists so the WebSocketServer has an underlying server
   return http.createServer((req, res) => {
     res.statusCode = 200;
     res.setHeader("Content-Type", "text/plain");
@@ -42,6 +44,7 @@ function createHttpServer() {
 }
 
 async function handleConnection(ws: WebSocket) {
+  // Each new socket funnels JSON messages into a simple type switch
   ws.on("message", async (raw: { toString: () => string }) => {
     const { type, data } = JSON.parse(raw.toString()) || {};
     console.log("Received message:", type, data);
@@ -60,6 +63,7 @@ async function handleConnection(ws: WebSocket) {
 }
 
 async function handleJoinRoom(ws: WebSocket, data: Data) {
+  // JWT is signed by NextAuth on the frontend; verifying here keeps the socket trusted
   jwt.verify(
     data.token,
     process.env.NEXTAUTH_SECRET as string,
@@ -93,6 +97,14 @@ async function processUserAction(type: string, data: Data) {
 
     case "add-to-queue":
       await RoomManager.getInstance().addToQueue(
+        data.spaceId,
+        data.userId,
+        data.url
+      );
+      break;
+    
+    case "add-playlist-to-queue":
+      await RoomManager.getInstance().addPlaylistToQueue(
         data.spaceId,
         data.userId,
         data.url
@@ -136,6 +148,7 @@ async function processUserAction(type: string, data: Data) {
 }
 
 async function handleUserAction(ws: WebSocket, type: string, data: Data) {
+  // Only allow actions from sockets we already associated to a known user
   const user = RoomManager.getInstance().users.get(data.userId);
   console.log(RoomManager.getInstance().users,data.userId)
 
@@ -151,6 +164,7 @@ async function handleUserAction(ws: WebSocket, type: string, data: Data) {
 async function main() {
   const server = createHttpServer();
   const wss = new WebSocketServer({ server });
+  // Redis is shared state between worker processes; connect before accepting sockets
   await RoomManager.getInstance().initRedisClient()
 
 

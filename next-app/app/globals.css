@@ -1,3 +1,4 @@
+/* Global Tailwind layers plus CSS variables for the dark/light themes */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

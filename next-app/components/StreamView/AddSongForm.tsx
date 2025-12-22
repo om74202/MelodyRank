@@ -1,4 +1,4 @@
-import { YT_REGEX } from "@/lib/utils";
+import { YT_PLAYLIST_REGEX, YT_REGEX } from "@/lib/utils";
 import { useSocket } from "@/context/socket-context";
 import React from "react";
 import { Button } from "@/components/ui/button";
@@ -38,26 +38,45 @@ export default function AddSongForm({
   const {connection} = useConnection();
   const user = useSession().data?.user;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (inputLink.match(YT_REGEX)) {
-      setLoading(true);
-      
-      sendMessage("add-to-queue", {
-        spaceId,
-        userId,
-        url: inputLink,
-      });
-    } else {
-      enqueueToast("error", "Invalid please use specified format");
-    }
-    setLoading(false);
-    setInputLink("");
-  };
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  if (!inputLink) return;
+
+  setLoading(true);
+
+  // ✅ Playlist link
+  if (YT_PLAYLIST_REGEX.test(inputLink)) {
+    sendMessage("add-playlist-to-queue", {
+      spaceId,
+      userId,
+      url: inputLink,
+    });
+    console.log("playlist")
+  }
+  // ✅ Single video link
+  else if (YT_REGEX.test(inputLink)) {
+    sendMessage("add-to-queue", {
+      spaceId,
+      userId,
+      url: inputLink,
+    });
+    console.log("single video")
+  }
+  // ❌ Invalid
+  else {
+    enqueueToast("error", "Invalid YouTube link");
+  }
+
+  setLoading(false);
+  setInputLink("");
+};
+
 
   const handlePayAndPlay = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // "Pay and play" sends a Solana transfer before asking the host to fast-track the song
     if(!wallet.publicKey || !connection){
       enqueueToast("error", "Please connect your wallet");
       return;

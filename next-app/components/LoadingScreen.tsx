@@ -1,5 +1,6 @@
 import React from "react";
 
+// Minimal animated loader shown while auth/socket state is resolving
 export default function LoadingScreen() {
   return (
     <div className=" bg-[rgb(10,10,10)] text-gray-200">

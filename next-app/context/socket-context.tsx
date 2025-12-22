@@ -34,6 +34,7 @@ export const SocketContextProvider = ({ children }: PropsWithChildren) => {
 
 
   useEffect(() => {
+    // Open a single WebSocket connection per browser tab once the NextAuth session is known
     if (!socket && session.data?.user.id) {
       const ws = new WebSocket(process.env.NEXT_PUBLIC_WSS_URL as string);
       ws.onopen = () => {
@@ -79,6 +80,7 @@ export const useSocket = () => {
     useContext(SocketContext);
 
   const sendMessage = (type: string, data: { [key: string]: any }) => {
+    // Every outbound message carries the auth token so the backend can re-check identity
     socket?.send(
       JSON.stringify({
         type,

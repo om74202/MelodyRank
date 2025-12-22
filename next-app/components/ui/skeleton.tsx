@@ -1,5 +1,6 @@
 import { cn } from "@/lib/utils"
 
+// Basic loading placeholder block; drop in while data is fetching.
 function Skeleton({
   className,
   ...props

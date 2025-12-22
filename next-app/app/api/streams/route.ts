@@ -18,6 +18,7 @@ const MAX_QUEUE_LEN = 20;
 
 export async function POST(req: NextRequest) {
   try {
+    // Server-side session read: keeps the route handler protected without extra API calls
     const session = await getServerSession(authOptions);
 
     if (!session?.user.id) {
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest) {
     }
     const user = session.user;
 
+    // Validate the incoming payload with zod so we fail fast on bad input
     const data = CreateStreamSchema.parse(await req.json());
 
     if (!data.url.trim()) {
@@ -144,6 +146,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Hard stop to avoid unbounded queues
     if (existingActiveStreams >= MAX_QUEUE_LEN) {
       return NextResponse.json(
         {
@@ -194,6 +197,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  // `searchParams` on NextRequest lets us read ?spaceId=<id> directly
   const spaceId = req.nextUrl.searchParams.get("spaceId");
   const session = await getServerSession(authOptions);
   if (!session?.user.id) {

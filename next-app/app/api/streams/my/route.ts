@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
+  // Fetch the logged-in host's own streams; only runs on the server
   const session = await getServerSession(authOptions);
 
   if (!session?.user) {

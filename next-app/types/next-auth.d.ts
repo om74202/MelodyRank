@@ -1,5 +1,6 @@
 import { type DefaultSession } from "next-auth";
 
+// NextAuth module augmentation: lets TypeScript know our session carries an `id`
 declare module "next-auth" {
   interface Session {
     user: {

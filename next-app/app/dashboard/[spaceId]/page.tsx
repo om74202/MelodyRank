@@ -17,11 +17,12 @@ export default function Component({params:{spaceId}}:{params:{spaceId:string}}) 
   const [creatorId,setCreatorId]=useState<string | null>(null);
   const [loading1, setLoading1] = useState(true);
   
- 
- 
+
+
   
   
   useEffect(()=>{
+    // Lookup the creator for this room so we can assert the visitor is allowed
     async function fetchHostId(){
       try {
         const response = await fetch(`/api/spaces/?spaceId=${spaceId}`,{
@@ -47,7 +48,9 @@ export default function Component({params:{spaceId}}:{params:{spaceId:string}}) 
  
 
   useEffect(() => {
+    // Host uses the same WebSocket handshake as listeners but should land on the dashboard view
     if (user && socket && creatorId) {
+      
       const token =  user.token || jwt.sign(
         {
           creatorId: creatorId,
@@ -58,6 +61,7 @@ export default function Component({params:{spaceId}}:{params:{spaceId:string}}) 
           expiresIn: "24h",
         }
       );
+      
 
       socket?.send(
         JSON.stringify({
@@ -92,6 +96,7 @@ export default function Component({params:{spaceId}}:{params:{spaceId:string}}) 
 
 
   if(user.id!=creatorId){
+    // Guard rail so random users cannot access the control dashboard
     return <ErrorScreen>You are not the creator of this space</ErrorScreen>
   }
 

@@ -5,11 +5,17 @@ import youtubesearchapi from "youtube-search-api";
 import { Job, Queue, Worker } from "bullmq";
 import { PrismaClient } from "@prisma/client";
 import { getVideoId, isValidYoutubeURL } from "./utils";
+import { getPlaylistVideoUrls } from "./functions/Youtube";
+
+// Central brain for live rooms: keeps in-memory maps for fast lookups, mirrors
+// state to Redis so multiple Node workers stay in sync, and queues DB writes
+// through BullMQ workers to avoid race conditions.
 
 const TIME_SPAN_FOR_VOTE = 1200000; // 20min
 const TIME_SPAN_FOR_QUEUE = 1200000; // 20min
 const TIME_SPAN_FOR_REPEAT = 3600000;
 const MAX_QUEUE_LENGTH = 20;
+// Redis config pulled from env to keep instances coordinated
 
 const connection = {
   host: process.env.REDIS_HOST || "",
@@ -21,6 +27,7 @@ const redisCredentials = {
 };
 
 export class RoomManager {
+  // Singleton that coordinates rooms, users, Redis pub/sub, and background jobs
   private static instance: RoomManager;
   public spaces: Map<string, Space>;
   public users: Map<string, User>;
@@ -33,12 +40,14 @@ export class RoomManager {
   public wstoSpace: Map<WebSocket, string>;
 
   private constructor() {
+    // Local caches for fast lookups; Redis handles cross-process sync
     this.spaces = new Map();
     this.users = new Map();
     this.redisClient = createClient(redisCredentials);
     this.publisher = createClient(redisCredentials);
     this.subscriber = createClient(redisCredentials);
     this.prisma = new PrismaClient();
+    // Queue + worker let us throttle/serialize expensive DB operations
     this.queue = new Queue(process.pid.toString(), {
       connection,
     });
@@ -57,6 +66,7 @@ export class RoomManager {
   }
 
   async processJob(job: Job) {
+    // Dispatch background jobs to the appropriate admin handlers
     const { data, name } = job;
     if (name === "cast-vote") {
       await RoomManager.getInstance().adminCastVote(
@@ -93,6 +103,7 @@ export class RoomManager {
   }
 
   onSubscribeRoom(message: string, spaceId: string) {
+    // Handle events published by other server instances for the same space
     console.log("Subscibe Room", spaceId);
     const { type, data } = JSON.parse(message);
     if (type === "new-stream") {
@@ -116,6 +127,7 @@ export class RoomManager {
   async createRoom(spaceId: string) {
     console.log(process.pid + ": createRoom: ", { spaceId });
     if (!this.spaces.has(spaceId)) {
+      // Initialize space state and listen for pub/sub messages scoped to this room
       this.spaces.set(spaceId, {
         users: new Map<string, User>(),
         creatorId: "",
@@ -139,6 +151,7 @@ export class RoomManager {
   }
 
   async addUser(userId: string, ws: WebSocket, token: string) {
+    // Track multiple open sockets for the same logical user
     let user = this.users.get(userId);
     if (!user) {
       this.users.set(userId, {
@@ -160,6 +173,7 @@ export class RoomManager {
     ws: WebSocket,
     token: string
   ) {
+    // Ensure room/user exist locally, then bind websocket to room membership
     console.log("Join Room" + spaceId);
 
     let space = this.spaces.get(spaceId);
@@ -210,6 +224,7 @@ export class RoomManager {
     const user = this.users.get(userId as string);
 
     if (room && user) {
+      // Mark every pending stream as played and notify clients to clear UI
       await this.prisma.stream.updateMany({
         where: {
           played: false,
@@ -253,6 +268,7 @@ export class RoomManager {
     const creatorId = this.spaces.get(spaceId)?.creatorId;
 
     if (user && userId == creatorId) {
+      // Only host can remove; delete and broadcast removal
       await this.prisma.stream.delete({
         where: {
           id: streamId,
@@ -326,6 +342,7 @@ export class RoomManager {
       thumbnails.sort((a: { width: number }, b: { width: number }) =>
         a.width < b.width ? -1 : 1
       );
+      // Create immediate-play stream and update currentStream atomically
       const stream = await this.prisma.stream.create({
         data: {
           id: crypto.randomUUID(),
@@ -394,6 +411,7 @@ export class RoomManager {
     }
 
     if (targetUser.userId !== creatorId) {
+      // Only host can force-skip
       targetUser.ws.forEach((ws) => {
         ws.send(
           JSON.stringify({
@@ -513,6 +531,7 @@ export class RoomManager {
   ) {
     console.log(process.pid + " adminCastVote");
     if (vote === "upvote") {
+      // Record vote then throttle user for a time window
       await this.prisma.upvote.create({
         data: {
           id: crypto.randomUUID(),
@@ -592,6 +611,7 @@ export class RoomManager {
   }
 
   publishNewStream(spaceId: string, data: any) {
+    // Broadcast a new queue entry to every socket in the space
     console.log(process.pid + ": publishNewStream");
     console.log("Publish New Stream", spaceId);
     const space = this.spaces.get(spaceId);
@@ -651,6 +671,7 @@ export class RoomManager {
       thumbnails.sort((a: { width: number }, b: { width: number }) =>
         a.width < b.width ? -1 : 1
       );
+      // Persist stream, flag duplicates, and notify listeners
       const stream = await this.prisma.stream.create({
         data: {
           id: crypto.randomUUID(),
@@ -711,9 +732,144 @@ export class RoomManager {
     }
   }
 
+
+
+  
+
+
+  async addPlaylistToQueue(
+  spaceId: string,
+  currentUserId: string,
+  playlistUrl: string
+) {
+  console.log(process.pid + ": addPlaylistToQueue");
+  console.log("addPlaylistToQueue", spaceId,currentUserId,playlistUrl);
+
+  const space = this.spaces.get(spaceId);
+  const currentUser = this.users.get(currentUserId);
+  const creatorId = space?.creatorId;
+  const isCreator = currentUserId === creatorId;
+
+  if (!space || !currentUser) {
+    console.log("Room or User not defined");
+    return;
+  }
+
+  // Validate playlist URL
+  // if (!isValidYoutubeURL(playlistUrl)) {
+  //   currentUser.ws.forEach(ws => {
+  //     ws.send(
+  //       JSON.stringify({
+  //         type: "error",
+  //         data: { message: "Invalid YouTube URL" },
+  //       })
+  //     );
+  //   });
+  //   return;
+  // }
+
+  // Get current queue length
+  let previousQueueLength = parseInt(
+    (await this.redisClient.get(`queue-length-${spaceId}`)) || "0",
+    10
+  );
+
+  if (!previousQueueLength) {
+    previousQueueLength = await this.prisma.stream.count({
+      where: {
+        spaceId,
+        played: false,
+      },
+    });
+  }
+
+  // Non-creator restrictions (checked ONCE)
+  if (!isCreator) {
+    const lastAdded = await this.redisClient.get(
+      `lastAdded-${spaceId}-${currentUserId}`
+    );
+
+    if (lastAdded) {
+      currentUser.ws.forEach(ws => {
+        ws.send(
+          JSON.stringify({
+            type: "error",
+            data: { message: "You can add again after 20 min." },
+          })
+        );
+      });
+      return;
+    }
+
+    if (previousQueueLength >= MAX_QUEUE_LENGTH) {
+      currentUser.ws.forEach(ws => {
+        ws.send(
+          JSON.stringify({
+            type: "error",
+            data: { message: "Queue limit reached" },
+          })
+        );
+      });
+      return;
+    }
+  }
+
+  // 🔹 Fetch playlist songs
+  const videoUrls = await getPlaylistVideoUrls(playlistUrl);
+
+  if (!videoUrls.length) {
+    currentUser.ws.forEach(ws => {
+      ws.send(
+        JSON.stringify({
+          type: "error",
+          data: { message: "Playlist has no videos" },
+        })
+      );
+    });
+    return;
+  }
+
+  let addedCount = 0;
+  let currentQueueLength = previousQueueLength;
+
+  for (const url of videoUrls) {
+    if (currentQueueLength >= MAX_QUEUE_LENGTH) break;
+
+    // Block duplicate song (non-creator)
+    if (!isCreator) {
+      const alreadyAdded = await this.redisClient.get(`${spaceId}-${url}`);
+      if (alreadyAdded) continue;
+    }
+
+    await this.queue.add("add-to-queue", {
+      spaceId,
+      userId: currentUser.userId,
+      url,
+      existingActiveStream: currentQueueLength,
+    });
+
+    currentQueueLength++;
+    addedCount++;
+  }
+
+  // Optional feedback
+  currentUser.ws.forEach(ws => {
+    ws.send(
+      JSON.stringify({
+        type: "success",
+        data: {
+          message: `Added ${addedCount} songs from playlist`,
+        },
+      })
+    );
+  });
+}
+
+
   async addToQueue(spaceId: string, currentUserId: string, url: string) {
     console.log(process.pid + ": addToQueue");
 
+    // Lightweight validation before pushing work onto the queue
     const space = this.spaces.get(spaceId);
     const currentUser = this.users.get(currentUserId);
     const creatorId = this.spaces.get(spaceId)?.creatorId;
@@ -741,7 +897,7 @@ export class RoomManager {
       10
     );
 
-    // Checking if its zero that means there was no record in
+    // If cache miss, count directly to keep limits accurate
     if (!previousQueueLength) {
       previousQueueLength = await this.prisma.stream.count({
         where: {
@@ -809,6 +965,7 @@ export class RoomManager {
   }
 
   disconnect(ws: WebSocket) {
+    // Remove a socket from tracking and drop empty users/room memberships
     console.log(process.pid + ": disconnect");
     let userId: string | null = null;
     const spaceId = this.wstoSpace.get(ws);

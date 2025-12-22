@@ -8,6 +8,7 @@ export default function useRedirect() {
   const pathname = usePathname();
 
   useEffect(() => {
+    // Client-side guard: kick visitors back to "/" if NextAuth says unauthenticated
     if (session.status === "unauthenticated") {
       router.push("/");
     }

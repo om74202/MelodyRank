@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 
 export const GET = async (req: NextRequest) => {
+  // Lightweight "who am I" endpoint for the client; never hits the cache.
   const session = await getServerSession(authOptions);
 
   if (!session?.user.id) {

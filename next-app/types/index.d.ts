@@ -12,3 +12,4 @@ interface Video {
   haveUpvoted: boolean;
   spaceId:string
 }
+// Shared Video shape reused across client components and API responses

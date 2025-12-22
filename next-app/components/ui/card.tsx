@@ -2,6 +2,8 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
+// Reusable card primitives from the shadcn/ui pattern; `forwardRef` keeps them
+// compatible with Next.js server/client boundaries and Radix portals.
 const Card = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>

@@ -11,6 +11,7 @@ export function ThemeSwitcher() {
   const isDark = theme === "dark";
 
   useEffect(() => {
+    // Avoid hydration mismatch by waiting until the client mounts before reading theme
     setIsMounted(true);
   }, []);
 

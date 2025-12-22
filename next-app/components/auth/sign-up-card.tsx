@@ -29,6 +29,7 @@ export default function SignupCard({ setFormType: setState }: SignupCardProps) {
   const [pending, setPending] = useState(false);
   const router = useRouter();
 
+  // Shares the same NextAuth client helper as the sign-in card so the flow stays consistent
   const signInWithProvider = async (provider: "google" | "credentials") => {
     try {
       if (provider === "credentials") {
@@ -38,6 +39,7 @@ export default function SignupCard({ setFormType: setState }: SignupCardProps) {
           redirect: false,
           callbackUrl: "/home",
         });
+        console.log(res)
         res.then((res) => {
           if (res?.error) {
             setError(res.error);

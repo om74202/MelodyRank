@@ -16,6 +16,7 @@ const toastOptions: ToasterProps = {
   pauseWhenPageIsHidden: true,
 };
 
+// Next.js reads this `metadata` export to build SEO tags for every route.
 export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXTAUTH_URL || "https://muzer.100xdevs.com/",
@@ -44,6 +45,8 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // RootLayout is rendered for every route; think of it as the shared shell.
+  // `suppressHydrationWarning` avoids noisy logs when client + server HTML differ slightly.
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} bg-[#1b1934b2]`}>

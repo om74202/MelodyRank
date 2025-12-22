@@ -25,6 +25,7 @@ model User {
   hostedSpaces Space[]  @relation("hostedBy")
 }
 
+// A Stream is a single track queued in a space; it can be added by someone other than the host.
 model Stream {
   id            String         @id @default(uuid())
   type          StreamType
@@ -47,6 +48,7 @@ model Stream {
   space         Space?         @relation("spaceStreams", fields: [spaceId], references: [id], onDelete: Cascade)
 }
 
+// Tracks which stream is currently live for a given space (one-to-one)
 model CurrentStream {
   id       String  @id @default(uuid())
   userId   String
@@ -66,6 +68,7 @@ model Upvote {
   @@unique([userId, streamId])
 }
 
+// Each Space represents a host-owned room that listeners can join
 model Space {
   id            String         @id @default(uuid())
   name          String

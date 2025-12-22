@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req:NextRequest) {
+  // Host-only endpoint to mark every pending track as played for a space
   const session = await getServerSession(authOptions);
 
   if (!session?.user) {
@@ -36,6 +37,7 @@ export async function POST(req:NextRequest) {
       message: "Queue emptied successfully",
     });
   } catch (error) {
+    console.log(error)
     console.error("Error emptying queue:", error);
     return NextResponse.json(
       {

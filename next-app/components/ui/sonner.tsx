@@ -5,6 +5,7 @@ import { Toaster as Sonner } from "sonner"
 
 type ToasterProps = React.ComponentProps<typeof Sonner>
 
+// Wrap the Sonner toaster so it auto-adapts to the current Next.js theme.
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "dark" } = useTheme()
 

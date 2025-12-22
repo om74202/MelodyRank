@@ -2,6 +2,7 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
+// Small styled input wrapper; keeps focus rings and disabled state consistent.
 export interface InputProps
   extends React.InputHTMLAttributes<HTMLInputElement> {}
 

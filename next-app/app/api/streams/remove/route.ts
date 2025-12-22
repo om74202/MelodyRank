@@ -10,6 +10,7 @@ const RemoveStreamSchema = z.object({
 });
 
 export async function DELETE(req: NextRequest) {
+  // Next.js route handlers always execute server-side, so reading the session is safe
   const session = await getServerSession(authOptions);
 
   if (!session?.user.id) {
@@ -29,6 +30,7 @@ export async function DELETE(req: NextRequest) {
     const streamId = searchParams.get("streamId");
     const spaceId = searchParams.get('spaceId')
 
+    // query params are used here because DELETE requests typically have no body
     if (!streamId) {
       return NextResponse.json(
         {

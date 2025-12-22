@@ -28,6 +28,7 @@ export default function Component({params:{spaceId}}:{params:{spaceId:string}}) 
   console.log(spaceId)
   
   useEffect(()=>{
+    // Grab the space host so we can embed it in the JWT sent over WebSocket
     async function fetchHostId(){
       try {
         const response = await fetch(`/api/spaces/?spaceId=${spaceId}`,{
@@ -53,6 +54,8 @@ export default function Component({params:{spaceId}}:{params:{spaceId:string}}) 
  
 
   useEffect(() => {
+    // Once we know who the host is, sign a short-lived token for the socket handshake
+    // (Next.js exposes env vars prefixed with NEXT_PUBLIC_* to the browser).
     if (user && socket && creatorId) {
       const token =  user.token || jwt.sign(
         {
@@ -107,4 +110,6 @@ export default function Component({params:{spaceId}}:{params:{spaceId:string}}) 
   
 }
 
+// Next.js `dynamic` hint: "auto" lets the framework choose between cached/static
+// and dynamic rendering based on what the page uses.
 export const dynamic = "auto";

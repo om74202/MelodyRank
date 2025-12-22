@@ -29,6 +29,7 @@ export default function HomeView() {
   const [loading, setIsLoading] = useState(false);
 
   useEffect(() => {
+    // Fetch the caller's spaces from our Next.js Route Handler on mount
     const fetchSpaces = async () => {
       setIsLoading(true);
       try {
@@ -54,6 +55,7 @@ export default function HomeView() {
   }, []);
 
   const handleCreateSpace = async () => {
+    // Talk to the /api/spaces POST endpoint and optimistically append to local state
     setIsCreateSpaceOpen(false);
     try {
       const response = await fetch(`/api/spaces`, {

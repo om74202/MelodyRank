@@ -1,4 +1,4 @@
-<h1 align='center'>Muzer - 100xDevs</h1>
+<h1 align='center'>MelodyRanker</h1>
 
 ## Table of Contents
 

@@ -8,6 +8,7 @@ import { emailSchema, passwordSchema } from "@/schema/credentials-schema";
 import { PrismaClientInitializationError } from "@prisma/client/runtime/library";
 import prisma from "@/lib/db";
 
+// NextAuth configuration: Google OAuth + custom credentials flow with Prisma persistence
 export const authOptions = {
   providers: [
     GoogleProvider({
@@ -94,6 +95,7 @@ export const authOptions = {
   },
   secret: process.env.NEXTAUTH_SECRET ?? "secret",
   session: {
+    // "jwt" strategy keeps sessions stateless instead of storing in a database
     strategy: "jwt"
   },
   callbacks: {

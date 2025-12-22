@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
+  // Server-only route handler: find the next track for the host's room
   const session = await getServerSession(authOptions);
 
   if (!session?.user.id) {
