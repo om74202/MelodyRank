@@ -10,7 +10,7 @@ function extractPlaylistId(url: string): string | null {
 }
 
 export async function getPlaylistVideoUrls(
-  playlistUrl: string
+  playlistUrl: string,
 ): Promise<string[]> {
   const playlistId = extractPlaylistId(playlistUrl);
 

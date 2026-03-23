@@ -130,6 +130,20 @@ export default function HomeView() {
       ));
     }
   }, [loading, spaces, handleDeleteSpace]);
+   const handleUpgrade = async () => {
+    try{
+       const res = await fetch("/api/billing/checkout", { method: "POST" });
+     const data = await res.json();
+     console.log(data)
+
+     if (data.url) {
+       window.location.href = data.url;
+     }
+    }catch(e){
+      console.log(e)
+    }
+   };
+
 
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-b from-gray-900 to-black text-gray-200">
@@ -138,14 +152,22 @@ export default function HomeView() {
         <div className="h-36 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-900 bg-clip-text text-9xl font-bold text-transparent">
           Spaces
         </div>
-        <Button
-          onClick={() => {
-            setIsCreateSpaceOpen(true);
-          }}
-          className="mt-10 rounded-lg bg-purple-600 px-4 py-2 text-white hover:bg-purple-700"
-        >
-          Create a new Space
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={() => {
+              setIsCreateSpaceOpen(true);
+            }}
+            className="mt-10 rounded-lg bg-purple-600 px-4 py-2 text-white hover:bg-purple-700"
+          >
+            Create a new Space
+          </Button>
+          <Button
+            onClick={handleUpgrade}
+            className="mt-10 rounded-lg bg-purple-600 px-4 py-2 text-white hover:bg-purple-700"
+          >
+            Upgrade to Premium
+          </Button>
+        </div>
 
         <div className="mt-20 grid grid-cols-1 gap-8 p-4 md:grid-cols-2">
           {renderSpaces}

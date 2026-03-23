@@ -3,7 +3,7 @@ import { createClient, RedisClientType } from "redis";
 //@ts-ignore
 import youtubesearchapi from "youtube-search-api";
 import { Job, Queue, Worker } from "bullmq";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, StreamType } from "@prisma/client";
 import { getVideoId, isValidYoutubeURL } from "./utils";
 import { getPlaylistVideoUrls } from "./functions/Youtube";
 
@@ -14,7 +14,7 @@ import { getPlaylistVideoUrls } from "./functions/Youtube";
 const TIME_SPAN_FOR_VOTE = 1200000; // 20min
 const TIME_SPAN_FOR_QUEUE = 1200000; // 20min
 const TIME_SPAN_FOR_REPEAT = 3600000;
-const MAX_QUEUE_LENGTH = 20;
+const MAX_QUEUE_LENGTH = 200;
 // Redis config pulled from env to keep instances coordinated
 
 const connection = {
@@ -74,14 +74,20 @@ export class RoomManager {
         data.userId,
         data.streamId,
         data.vote,
-        data.spaceId
+        data.spaceId,
       );
     } else if (name === "add-to-queue") {
       await RoomManager.getInstance().adminAddStreamHandler(
         data.spaceId,
         data.userId,
         data.url,
-        data.existingActiveStream
+        data.existingActiveStream,
+      );
+    } else if (name === "add-playlist-to-queue") {
+      await RoomManager.getInstance().adminAddPlaylistHandler(
+        data.spaceId,
+        data.userId,
+        data.playlistUrl,
       );
     } else if (name === "play-next") {
       await RoomManager.getInstance().adminPlayNext(data.spaceId, data.userId);
@@ -89,7 +95,7 @@ export class RoomManager {
       await RoomManager.getInstance().adminRemoveSong(
         data.spaceId,
         data.userId,
-        data.streamId
+        data.streamId,
       );
     } else if (name === "empty-queue") {
       await RoomManager.getInstance().adminEmptyQueue(data.spaceId);
@@ -113,7 +119,7 @@ export class RoomManager {
         spaceId,
         data.streamId,
         data.vote,
-        data.votedBy
+        data.votedBy,
       );
     } else if (type === "play-next") {
       RoomManager.getInstance().publishPlayNext(spaceId);
@@ -132,20 +138,6 @@ export class RoomManager {
         users: new Map<string, User>(),
         creatorId: "",
       });
-      // const roomsString = await this.redisClient.get("rooms");
-      // if (roomsString) {
-      //   const rooms = JSON.parse(roomsString);
-      //   if (!rooms.includes(creatorId)) {
-      //     await this.redisClient.set(
-      //       "rooms",
-      //       JSON.stringify([...rooms, creatorId])
-      //     , {
-      //       EX: 3600 * 24
-      //     });
-      //   }
-      // } else {
-      //   await this.redisClient.set("rooms", JSON.stringify([creatorId]));
-      // }
       await this.subscriber.subscribe(spaceId, this.onSubscribeRoom);
     }
   }
@@ -171,7 +163,7 @@ export class RoomManager {
     creatorId: string,
     userId: string,
     ws: WebSocket,
-    token: string
+    token: string,
   ) {
     // Ensure room/user exist locally, then bind websocket to room membership
     console.log("Join Room" + spaceId);
@@ -212,7 +204,7 @@ export class RoomManager {
         ws.send(
           JSON.stringify({
             type: `empty-queue/${spaceId}`,
-          })
+          }),
         );
       });
     });
@@ -239,7 +231,7 @@ export class RoomManager {
         spaceId,
         JSON.stringify({
           type: "empty-queue",
-        })
+        }),
       );
     }
   }
@@ -256,7 +248,7 @@ export class RoomManager {
               streamId,
               spaceId,
             },
-          })
+          }),
         );
       });
     });
@@ -284,7 +276,7 @@ export class RoomManager {
             streamId,
             spaceId,
           },
-        })
+        }),
       );
     } else {
       user?.ws.forEach((ws) => {
@@ -294,7 +286,7 @@ export class RoomManager {
             data: {
               message: "You cant remove the song . You are not the host",
             },
-          })
+          }),
         );
       });
     }
@@ -307,7 +299,7 @@ export class RoomManager {
         ws.send(
           JSON.stringify({
             type: `play-next/${spaceId}`,
-          })
+          }),
         );
       });
     });
@@ -329,7 +321,7 @@ export class RoomManager {
           JSON.stringify({
             type: "error",
             data: { message: "Invalid YouTube URL" },
-          })
+          }),
         );
       });
       return;
@@ -340,7 +332,7 @@ export class RoomManager {
     if (res.thumbnail) {
       const thumbnails = res.thumbnail.thumbnails;
       thumbnails.sort((a: { width: number }, b: { width: number }) =>
-        a.width < b.width ? -1 : 1
+        a.width < b.width ? -1 : 1,
       );
       // Create immediate-play stream and update currentStream atomically
       const stream = await this.prisma.stream.create({
@@ -397,7 +389,7 @@ export class RoomManager {
         spaceId,
         JSON.stringify({
           type: "play-next",
-        })
+        }),
       );
     }
   }
@@ -419,7 +411,7 @@ export class RoomManager {
             data: {
               message: "You can't perform this action.",
             },
-          })
+          }),
         );
       });
       return;
@@ -445,7 +437,7 @@ export class RoomManager {
             data: {
               message: "Please add video in queue",
             },
-          })
+          }),
         );
       });
       return;
@@ -480,12 +472,12 @@ export class RoomManager {
 
     let previousQueueLength = parseInt(
       (await this.redisClient.get(`queue-length-${spaceId}`)) || "1",
-      10
+      10,
     );
     if (previousQueueLength) {
       await this.redisClient.set(
         `queue-length-${spaceId}`,
-        previousQueueLength - 1
+        previousQueueLength - 1,
       );
     }
 
@@ -493,7 +485,7 @@ export class RoomManager {
       spaceId,
       JSON.stringify({
         type: "play-next",
-      })
+      }),
     );
   }
 
@@ -501,7 +493,7 @@ export class RoomManager {
     spaceId: string,
     streamId: string,
     vote: "upvote" | "downvote",
-    votedBy: string
+    votedBy: string,
   ) {
     console.log(process.pid + " publishNewVote");
     const spaces = this.spaces.get(spaceId);
@@ -516,7 +508,7 @@ export class RoomManager {
               votedBy,
               spaceId,
             },
-          })
+          }),
         );
       });
     });
@@ -527,7 +519,7 @@ export class RoomManager {
     userId: string,
     streamId: string,
     vote: string,
-    spaceId: string
+    spaceId: string,
   ) {
     console.log(process.pid + " adminCastVote");
     if (vote === "upvote") {
@@ -554,7 +546,7 @@ export class RoomManager {
       new Date().getTime(),
       {
         EX: TIME_SPAN_FOR_VOTE / 1000,
-      }
+      },
     );
 
     await this.publisher.publish(
@@ -562,7 +554,7 @@ export class RoomManager {
       JSON.stringify({
         type: "new-vote",
         data: { streamId, vote, votedBy: userId },
-      })
+      }),
     );
   }
 
@@ -570,7 +562,7 @@ export class RoomManager {
     userId: string,
     streamId: string,
     vote: "upvote" | "downvote",
-    spaceId: string
+    spaceId: string,
   ) {
     console.log(process.pid + " castVote");
     const space = this.spaces.get(spaceId);
@@ -583,7 +575,7 @@ export class RoomManager {
     }
     if (!isCreator) {
       const lastVoted = await this.redisClient.get(
-        `lastVoted-${spaceId}-${userId}`
+        `lastVoted-${spaceId}-${userId}`,
       );
 
       if (lastVoted) {
@@ -594,7 +586,7 @@ export class RoomManager {
               data: {
                 message: "You can vote after 20 mins",
               },
-            })
+            }),
           );
         });
         return;
@@ -623,7 +615,7 @@ export class RoomManager {
             JSON.stringify({
               type: `new-stream/${spaceId}`,
               data: data,
-            })
+            }),
           );
         });
       });
@@ -634,7 +626,7 @@ export class RoomManager {
     spaceId: string,
     userId: string,
     url: string,
-    existingActiveStream: number
+    existingActiveStream: number,
   ) {
     console.log(process.pid + " adminAddStreamHandler");
     console.log("adminAddStreamHandler", spaceId);
@@ -653,7 +645,7 @@ export class RoomManager {
           JSON.stringify({
             type: "error",
             data: { message: "Invalid YouTube URL" },
-          })
+          }),
         );
       });
       return;
@@ -661,7 +653,7 @@ export class RoomManager {
 
     await this.redisClient.set(
       `queue-length-${spaceId}`,
-      existingActiveStream + 1
+      existingActiveStream + 1,
     );
 
     const res = await youtubesearchapi.GetVideoDetails(extractedId);
@@ -669,7 +661,7 @@ export class RoomManager {
     if (res.thumbnail) {
       const thumbnails = res.thumbnail.thumbnails;
       thumbnails.sort((a: { width: number }, b: { width: number }) =>
-        a.width < b.width ? -1 : 1
+        a.width < b.width ? -1 : 1,
       );
       // Persist stream, flag duplicates, and notify listeners
       const stream = await this.prisma.stream.create({
@@ -704,7 +696,7 @@ export class RoomManager {
         new Date().getTime(),
         {
           EX: TIME_SPAN_FOR_QUEUE / 1000,
-        }
+        },
       );
 
       await this.publisher.publish(
@@ -716,7 +708,7 @@ export class RoomManager {
             hasUpvoted: false,
             upvotes: 0,
           },
-        })
+        }),
       );
     } else {
       currentUser?.ws.forEach((ws) => {
@@ -726,145 +718,277 @@ export class RoomManager {
             data: {
               message: "Video not found",
             },
-          })
+          }),
         );
       });
     }
   }
 
+  async adminAddPlaylistHandler(
+    spaceId: string,
+    userId: string,
+    playlistUrl: string,
+  ) {
+    const currentUser = this.users.get(userId);
+    try {
+      const videoUrls = await getPlaylistVideoUrls(playlistUrl);
+
+      let currentQueueLength = parseInt(
+        (await this.redisClient.get(`queue-length-${spaceId}`)) || "0",
+        10,
+      );
+
+      // Fall back to the database when the Redis cache is empty or stale.
+      if (!currentQueueLength) {
+        currentQueueLength = await this.prisma.stream.count({
+          where: {
+            spaceId,
+            played: false,
+          },
+        });
+      }
+
+      const remainingSlots = MAX_QUEUE_LENGTH - currentQueueLength;
+      console.log()
+      if (remainingSlots <= 0) {
+        currentUser?.ws?.forEach((ws: WebSocket) => {
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              data: {
+                message: "Queue limit reached",
+              },
+            }),
+          );
+        });
+
+        return;
+      }
+
+      console.log(playlistUrl, currentUser);
+      const candidateUrls = videoUrls.slice(0, remainingSlots);
+      const keys = candidateUrls.map((url) => `${spaceId}-${url}`);
+      const duplicateFlags = await this.redisClient.mGet(keys);
+
+      const filteredUrls = candidateUrls.filter(
+        (_, index) => !duplicateFlags[index],
+      );
+
+      const items = filteredUrls
+        .map((url) => ({ url, extractedId: getVideoId(url) }))
+        .filter((item) => item.extractedId);
+
+      const result = await Promise.allSettled(
+        items.map((item) => youtubesearchapi.GetVideoDetails(item.extractedId)),
+      );
+      const successfulItems = result
+        .map((result, index) => {
+          if (result.status !== "fulfilled") {
+            return null;
+          }
+
+          return {
+            item: items[index],
+            details: result.value,
+          };
+        })
+        .filter(
+          (value): value is { item: (typeof items)[number]; details: any } =>
+            value !== null,
+        );
 
 
-  
+      const validItems = successfulItems.filter(({ item }) => item.extractedId);
 
+      if (!validItems.length) {
+        currentUser?.ws?.forEach((ws: WebSocket) => {
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              data: {
+                message: "No valid songs from the playlist could be added",
+              },
+            }),
+          );
+        });
+        return;
+      }
+
+      const streamRows = validItems.map(({ item, details }) => {
+        const thumbs = details.thumbnail?.thumbnails ?? [];
+        const lastThumb = thumbs[thumbs.length - 1]?.url ?? "";
+
+        return {
+          id: crypto.randomUUID(),
+          userId,
+          addedBy: userId,
+          url: item.url,
+          extractedId: item.extractedId as string,
+          type: StreamType.Youtube,
+          title: details.title ?? "Cant find video",
+          smallImg: lastThumb,
+          bigImg: lastThumb,
+          spaceId,
+        };
+      });
+
+      await this.prisma.stream.createMany({
+        data: streamRows,
+      });
+
+      const multi = this.redisClient.multi();
+
+      for (const row of streamRows) {
+        multi.set(`${spaceId}-${row.url}`, Date.now().toString(), {
+          EX: TIME_SPAN_FOR_REPEAT / 1000,
+        });
+      }
+
+      multi.set(`lastAdded-${spaceId}-${userId}`, Date.now().toString(), {
+        EX: TIME_SPAN_FOR_QUEUE / 1000,
+      });
+
+      multi.set(
+        `queue-length-${spaceId}`,
+        currentQueueLength + streamRows.length,
+      );
+
+      await multi.exec();
+
+      for (const stream of streamRows) {
+        await this.publisher.publish(
+          spaceId,
+          JSON.stringify({
+            type: "new-stream",
+            data: {
+              ...stream,
+              hasUpvoted: false,
+              upvotes: 0,
+            },
+          }),
+        );
+      }
+
+      const skippedForCapacity = Math.max(videoUrls.length - candidateUrls.length, 0);
+      const skippedAsDuplicates = candidateUrls.length - filteredUrls.length;
+      const skippedAsInvalid = filteredUrls.length - streamRows.length;
+      const skippedCount =
+        skippedForCapacity + skippedAsDuplicates + skippedAsInvalid;
+      console.log()
+      currentUser?.ws?.forEach((ws: WebSocket) => {
+        ws.send(
+          JSON.stringify({
+            type: "success",
+            data: {
+              message:
+                skippedCount > 0
+                  ? `Added ${streamRows.length} songs from playlist, skipped ${skippedCount}`
+                  : `Added ${streamRows.length} songs from playlist`,
+            },
+          }),
+        );
+      });
+    } catch (e) {
+      console.log(e);
+      currentUser?.ws?.forEach((ws: WebSocket) => {
+        ws.send(
+          JSON.stringify({
+            type: "error",
+            data: {
+              message: "Failed to add playlist to queue",
+            },
+          }),
+        );
+      });
+    }
+
+  }
 
   async addPlaylistToQueue(
-  spaceId: string,
-  currentUserId: string,
-  playlistUrl: string
-) {
-  console.log(process.pid + ": addPlaylistToQueue");
-  console.log("addPlaylistToQueue", spaceId,currentUserId,playlistUrl);
+    spaceId: string,
+    currentUserId: string,
+    playlistUrl: string,
+  ) {
+    console.log(process.pid + ": addPlaylistToQueue");
+    console.log("addPlaylistToQueue", spaceId, currentUserId, playlistUrl);
 
-  const space = this.spaces.get(spaceId);
-  const currentUser = this.users.get(currentUserId);
-  const creatorId = space?.creatorId;
-  const isCreator = currentUserId === creatorId;
+    const space = this.spaces.get(spaceId);
+    const currentUser = this.users.get(currentUserId);
+    const creatorId = space?.creatorId;
+    const isCreator = currentUserId === creatorId;
 
-  if (!space || !currentUser) {
-    console.log("Room or User not defined");
-    return;
-  }
+    if (!space || !currentUser) {
+      console.log("Room or User not defined");
+      return;
+    }
 
-  // Validate playlist URL
-  // if (!isValidYoutubeURL(playlistUrl)) {
-  //   currentUser.ws.forEach(ws => {
-  //     ws.send(
-  //       JSON.stringify({
-  //         type: "error",
-  //         data: { message: "Invalid YouTube URL" },
-  //       })
-  //     );
-  //   });
-  //   return;
-  // }
-
-  // Get current queue length
-  let previousQueueLength = parseInt(
-    (await this.redisClient.get(`queue-length-${spaceId}`)) || "0",
-    10
-  );
-
-  if (!previousQueueLength) {
-    previousQueueLength = await this.prisma.stream.count({
-      where: {
-        spaceId,
-        played: false,
-      },
-    });
-  }
-
-  // Non-creator restrictions (checked ONCE)
-  if (!isCreator) {
-    const lastAdded = await this.redisClient.get(
-      `lastAdded-${spaceId}-${currentUserId}`
+    // Get current queue length
+    let previousQueueLength = parseInt(
+      (await this.redisClient.get(`queue-length-${spaceId}`)) || "0",
+      10,
     );
 
-    if (lastAdded) {
-      currentUser.ws.forEach(ws => {
-        ws.send(
-          JSON.stringify({
-            type: "error",
-            data: { message: "You can add again after 20 min." },
-          })
-        );
-      });
-      return;
-    }
-
-    if (previousQueueLength >= MAX_QUEUE_LENGTH) {
-      currentUser.ws.forEach(ws => {
-        ws.send(
-          JSON.stringify({
-            type: "error",
-            data: { message: "Queue limit reached" },
-          })
-        );
-      });
-      return;
-    }
-  }
-
-  // 🔹 Fetch playlist songs
-  const videoUrls = await getPlaylistVideoUrls(playlistUrl);
-
-  if (!videoUrls.length) {
-    currentUser.ws.forEach(ws => {
-      ws.send(
-        JSON.stringify({
-          type: "error",
-          data: { message: "Playlist has no videos" },
-        })
-      );
-    });
-    return;
-  }
-
-  let addedCount = 0;
-  let currentQueueLength = previousQueueLength;
-
-  for (const url of videoUrls) {
-    if (currentQueueLength >= MAX_QUEUE_LENGTH) break;
-
-    // Block duplicate song (non-creator)
-    if (!isCreator) {
-      const alreadyAdded = await this.redisClient.get(`${spaceId}-${url}`);
-      if (alreadyAdded) continue;
-    }
-
-    await this.queue.add("add-to-queue", {
-      spaceId,
-      userId: currentUser.userId,
-      url,
-      existingActiveStream: currentQueueLength,
-    });
-
-    currentQueueLength++;
-    addedCount++;
-  }
-
-  // Optional feedback
-  currentUser.ws.forEach(ws => {
-    ws.send(
-      JSON.stringify({
-        type: "success",
-        data: {
-          message: `Added ${addedCount} songs from playlist`,
+    if (!previousQueueLength) {
+      previousQueueLength = await this.prisma.stream.count({
+        where: {
+          spaceId,
+          played: false,
         },
-      })
-    );
-  });
-}
+      });
+    }
 
+    // Non-creator restrictions (checked ONCE)
+    if (!isCreator) {
+      const lastAdded = await this.redisClient.get(
+        `lastAdded-${spaceId}-${currentUserId}`,
+      );
+
+      if (lastAdded) {
+        currentUser.ws.forEach((ws) => {
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              data: { message: "You can add again after 20 min." },
+            }),
+          );
+        });
+        return;
+      }
+
+      if (previousQueueLength >= MAX_QUEUE_LENGTH) {
+        currentUser.ws.forEach((ws) => {
+          ws.send(
+            JSON.stringify({
+              type: "error",
+              data: { message: "Queue limit reached" },
+            }),
+          );
+        });
+        return;
+      }
+    }
+
+    // 🔹 Fetch playlist songs
+    const videoUrls = await getPlaylistVideoUrls(playlistUrl);
+
+    if (!videoUrls.length) {
+      currentUser.ws.forEach((ws) => {
+        ws.send(
+          JSON.stringify({
+            type: "error",
+            data: { message: "Playlist has no videos" },
+          }),
+        );
+      });
+      return;
+    }
+
+    await this.queue.add("add-playlist-to-queue", {
+      spaceId,
+      userId: currentUserId,
+      playlistUrl,
+    });
+  }
 
   async addToQueue(spaceId: string, currentUserId: string, url: string) {
     console.log(process.pid + ": addToQueue");
@@ -886,7 +1010,7 @@ export class RoomManager {
           JSON.stringify({
             type: "error",
             data: { message: "Invalid YouTube URL" },
-          })
+          }),
         );
       });
       return;
@@ -894,7 +1018,7 @@ export class RoomManager {
 
     let previousQueueLength = parseInt(
       (await this.redisClient.get(`queue-length-${spaceId}`)) || "0",
-      10
+      10,
     );
 
     // If cache miss, count directly to keep limits accurate
@@ -909,7 +1033,7 @@ export class RoomManager {
 
     if (!isCreator) {
       let lastAdded = await this.redisClient.get(
-        `lastAdded-${spaceId}-${currentUserId}`
+        `lastAdded-${spaceId}-${currentUserId}`,
       );
 
       if (lastAdded) {
@@ -920,7 +1044,7 @@ export class RoomManager {
               data: {
                 message: "You can add again after 20 min.",
               },
-            })
+            }),
           );
         });
         return;
@@ -935,7 +1059,7 @@ export class RoomManager {
               data: {
                 message: "This song is blocked for 1 hour",
               },
-            })
+            }),
           );
         });
         return;
@@ -949,7 +1073,7 @@ export class RoomManager {
               data: {
                 message: "Queue limit reached",
               },
-            })
+            }),
           );
         });
         return;
@@ -985,7 +1109,7 @@ export class RoomManager {
       const space = this.spaces.get(spaceId);
       if (space) {
         const updatedUsers = new Map(
-          Array.from(space.users).filter(([usrId]) => userId !== usrId)
+          Array.from(space.users).filter(([usrId]) => userId !== usrId),
         );
         this.spaces.set(spaceId, {
           ...space,

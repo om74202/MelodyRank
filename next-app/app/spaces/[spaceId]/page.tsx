@@ -101,10 +101,7 @@ export default function Component({params:{spaceId}}:{params:{spaceId:string}}) 
 
   if(creatorId===user.id){
     router.push(`/dashboard/${spaceId}`)
-  }
-
-
-  
+  }  
   
   return <StreamView creatorId={creatorId as string} playVideo={false} spaceId={spaceId} />;
   
